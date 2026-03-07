@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>logv — CLI logs for Vercel & Netlify</title>
+  <meta name="description" content="Fast CLI tool for Vercel and Netlify deployment logs. Filter, export, tail. Free to use.">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root{--bg:#0f1117;--card:#151821;--text:#e8ebf3;--muted:#9fb0c8;--accent:#3b82f6;--ok:#22c55e}
+    body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1000px;margin:auto;padding:40px 20px}
+    h1{font-size:36px;margin:0 0 12px}
+    p.lead{font-size:18px;color:var(--muted);margin-bottom:28px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:32px 0}
+    .card{background:var(--card);border-radius:12px;padding:20px}
+    .mono{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0b0d12;padding:10px;border-radius:8px;overflow-x:auto}
+    .btn{display:inline-block;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600}
+    .btn-primary{background:var(--accent);color:#fff}
+    .tag{display:inline-block;background:#1c2231;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px;margin-left:6px}
+    .pricing .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+    .price{font-size:24px;font-weight:700}
+    .free .price{color:var(--ok)}
+    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .logo{font-weight:700;letter-spacing:-0.2px}
+    footer{margin-top:40px;color:var(--muted);font-size:13px}
+    @media(max-width:768px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">logv <span class="tag">v0.1</span></div>
+      <a class="btn btn-primary" href="#install">Install Now</a>
+    </header>
+
+    <h1>Vercel & Netlify deployment logs in your terminal</h1>
+    <p class="lead">Filter by type (error/warning), export to JSON/CSV, real-time tail. All via direct API — no heavy UI needed.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Usage</h3>
+        <div class="mono">
+          $ npm i -g logv<br>
+          $ export VERCEL_TOKEN=...<br>
+          $ logv vercel --list<br>
+          $ logv vercel -d dpl_xxx --filter error<br>
+          $ logv netlify -d abc123 --tail
+        </div>
+      </div>
+      <div class="card">
+        <h3>Why logv?</h3>
+        <ul>
+          <li>Fast — direct API calls, no heavy dashboard</li>
+          <li>Clear — filter by error/warning, readable output</li>
+          <li>Private — runs locally, no data sent to us</li>
+          <li>Cross-platform — macOS, Linux, Windows</li>
+        </ul>
+      </div>
+    </div>
+
+    <h2 id="install">Quick Install</h2>
+    <div class="card">
+      <div class="mono">
+        npm i -g logv<br>
+        export VERCEL_TOKEN=your_vercel_token<br>
+        export NETLIFY_TOKEN=your_netlify_token<br>
+        logv --help
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card pricing free">
+        <h3>Free</h3>
+        <div class="row"><span>Basic logs</span><span class="price">$0</span></div>
+        <div class="row"><span>Filter (error/warning)</span><span>✅</span></div>
+        <div class="row"><span>Export JSON/CSV</span><span>❌</span></div>
+        <div class="row"><span>Real-time tail</span><span>❌</span></div>
+      </div>
+      <div class="card pricing">
+        <h3>Pro</h3>
+        <div class="row"><span>Unlimited</span><span class="price">$7/mo</span></div>
+        <div class="row"><span>Real-time tail</span><span>✅</span></div>
+        <div class="row"><span>Full export</span><span>✅</span></div>
+        <div class="row"><span>Team access</span><span>✅</span></div>
+      </div>
+    </div>
+    <footer>Get started: <a href="https://github.com/arikmozh/logv" style="color:var(--accent)">github.com/arikmozh/logv</a></footer>
+  </div>
+</body>
+</html>
