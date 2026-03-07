@@ -11,7 +11,7 @@ Fast CLI tool to view deployment logs from Vercel and Netlify. Filter by type (e
 ## Install
 
 ```bash
-npm install -g logv
+npm install -g deploy-logv
 ```
 
 ## Setup

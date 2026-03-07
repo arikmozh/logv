@@ -1,9 +1,9 @@
 {
-  "name": "logv",
+  "name": "deploy-logv",
   "version": "0.1.0",
   "description": "CLI for Vercel/Netlify deployment logs",
   "bin": {
-    "logv": "./src/cli.js"
+    "logv": "src/cli.js"
   },
   "scripts": {
     "start": "node src/cli.js"
