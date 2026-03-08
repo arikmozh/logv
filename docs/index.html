@@ -1,90 +1,397 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>logv — CLI logs for Vercel & Netlify</title>
-  <meta name="description" content="Fast CLI tool for Vercel and Netlify deployment logs. Filter, export, tail. Free to use.">
+  <title>deploy-logv — Deployment logs in your terminal</title>
+  <meta name="description" content="Fast CLI for Vercel & Netlify deployment logs. Filter errors, list deploys, debug faster.">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    :root{--bg:#0f1117;--card:#151821;--text:#e8ebf3;--muted:#9fb0c8;--accent:#3b82f6;--ok:#22c55e}
-    body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text)}
-    .wrap{max-width:1000px;margin:auto;padding:40px 20px}
-    h1{font-size:36px;margin:0 0 12px}
-    p.lead{font-size:18px;color:var(--muted);margin-bottom:28px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:32px 0}
-    .card{background:var(--card);border-radius:12px;padding:20px}
-    .mono{font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#0b0d12;padding:10px;border-radius:8px;overflow-x:auto}
-    .btn{display:inline-block;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:600}
-    .btn-primary{background:var(--accent);color:#fff}
-    .tag{display:inline-block;background:#1c2231;color:var(--muted);padding:4px 8px;border-radius:6px;font-size:12px;margin-left:6px}
-    .pricing .row{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-    .price{font-size:24px;font-weight:700}
-    .free .price{color:var(--ok)}
-    header{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    .logo{font-weight:700;letter-spacing:-0.2px}
-    footer{margin-top:40px;color:var(--muted);font-size:13px}
-    @media(max-width:768px){.grid{grid-template-columns:1fr}}
+    :root {
+      --bg: #0a0a0b;
+      --surface: #141416;
+      --surface2: #1a1a1f;
+      --border: #2a2a30;
+      --text: #eeeef0;
+      --muted: #8888a0;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.15);
+      --green: #34d399;
+      --red: #f87171;
+      --yellow: #fbbf24;
+      --dim: #555566;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 20px 60px;
+      background: radial-gradient(ellipse at top, var(--accent-glow) 0%, transparent 60%);
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 14px;
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .hero-badge span { color: var(--green); }
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 700;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+    .hero h1 .gradient {
+      background: linear-gradient(135deg, var(--accent), #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 32px;
+    }
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { border-color: var(--accent); }
+
+    /* Terminal */
+    .terminal-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .terminal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-top: -20px;
+    }
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .terminal-dot.r { background: #ff5f57; }
+    .terminal-dot.y { background: #febc2e; }
+    .terminal-dot.g { background: #28c840; }
+    .terminal-title {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+    }
+    .terminal-body {
+      padding: 20px;
+      font: 13px/1.8 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      overflow-x: auto;
+    }
+    .terminal-body .prompt { color: var(--green); }
+    .terminal-body .cmd { color: var(--text); }
+    .terminal-body .flag { color: var(--accent); }
+    .terminal-body .out { color: var(--muted); }
+    .terminal-body .err { color: var(--red); }
+    .terminal-body .warn { color: var(--yellow); }
+    .terminal-body .dim { color: var(--dim); }
+
+    /* Sections */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+    section { padding: 80px 0; }
+    section h2 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 12px;
+      text-align: center;
+    }
+    section .subtitle {
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 48px;
+      font-size: 16px;
+    }
+
+    /* Features */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .feature {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      transition: border-color 0.2s;
+    }
+    .feature:hover { border-color: var(--accent); }
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-bottom: 16px;
+    }
+    .feature h3 { font-size: 16px; margin-bottom: 8px; }
+    .feature p { font-size: 14px; color: var(--muted); }
+
+    /* Install */
+    .install-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      max-width: 500px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .install-cmd {
+      font: 15px/1 'SF Mono', 'Fira Code', monospace;
+      color: var(--green);
+    }
+    .copy-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+
+    /* Pricing */
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .plan {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+    }
+    .plan.featured { border-color: var(--accent); }
+    .plan-name { font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .plan-price { font-size: 36px; font-weight: 700; margin-bottom: 20px; }
+    .plan-price span { font-size: 16px; color: var(--muted); font-weight: 400; }
+    .plan-features { list-style: none; }
+    .plan-features li {
+      padding: 6px 0;
+      font-size: 14px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .plan-features li::before { content: ''; display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+    .plan-features li.yes::before { background: var(--green); }
+    .plan-features li.no::before { background: var(--dim); }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 20px;
+      text-align: center;
+      color: var(--dim);
+      font-size: 13px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    @media (max-width: 768px) {
+      .features { grid-template-columns: 1fr; }
+      .pricing-grid { grid-template-columns: 1fr; }
+      .hero { padding: 60px 20px 40px; }
+    }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <div class="logo">logv <span class="tag">v0.1</span></div>
-      <a class="btn btn-primary" href="#install">Install Now</a>
-    </header>
 
-    <h1>Vercel & Netlify deployment logs in your terminal</h1>
-    <p class="lead">Filter by type (error/warning), export to JSON/CSV, real-time tail. All via direct API — no heavy UI needed.</p>
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge"><span>v0.1.0</span> &mdash; now on npm</div>
+    <h1>Deployment logs,<br><span class="gradient">straight from your terminal</span></h1>
+    <p>Stop clicking through dashboards. Get Vercel & Netlify logs instantly with filtering, error highlighting, and clean output.</p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="#install">npm i -g deploy-logv</a>
+      <a class="btn btn-secondary" href="https://github.com/arikmozh/logv">View on GitHub</a>
+    </div>
+  </div>
 
-    <div class="grid">
-      <div class="card">
-        <h3>Usage</h3>
-        <div class="mono">
-          $ npm i -g deploy-logv<br>
-          $ export VERCEL_TOKEN=...<br>
-          $ logv vercel --list<br>
-          $ logv vercel -d dpl_xxx --filter error<br>
-          $ logv netlify -d abc123 --tail
+  <!-- Terminal Demo -->
+  <div class="terminal-wrap">
+    <div class="terminal">
+      <div class="terminal-bar">
+        <div class="terminal-dot r"></div>
+        <div class="terminal-dot y"></div>
+        <div class="terminal-dot g"></div>
+        <div class="terminal-title">Terminal</div>
+      </div>
+      <div class="terminal-body">
+        <span class="prompt">$</span> <span class="cmd">logv vercel</span> <span class="flag">--list</span><br>
+        <br>
+        <span class="out">Recent Deployments:</span><br>
+        <br>
+        <span class="dim">  dpl_CcKqW7JJ</span> <span class="err">ERROR</span> <span class="dim">course-ink  4/22 21:48</span><br>
+        <span class="dim">  dpl_2aKWocy7</span> <span class="err">ERROR</span> <span class="dim">fine-online 4/22 21:48</span><br>
+        <span class="dim">  dpl_Ezs795xq</span> <span class="prompt">READY</span> <span class="dim">fine-online 4/20 23:49</span><br>
+        <br>
+        <span class="prompt">$</span> <span class="cmd">logv vercel</span> <span class="flag">-d dpl_CcKqW7JJ --filter error</span><br>
+        <br>
+        <span class="dim">21:49:11</span> <span class="err">ERR</span> Failed to compile.<br>
+        <span class="dim">21:49:11</span> <span class="err">ERR</span> Type error: File 'page.jsx' is not a module.<br>
+        <span class="dim">21:49:11</span> <span class="err">ERR</span> Command "npm run build" exited with 1<br>
+      </div>
+    </div>
+  </div>
+
+  <!-- Features -->
+  <section>
+    <div class="container">
+      <h2>Built for developers who ship</h2>
+      <p class="subtitle">Everything you need to debug deployments, nothing you don't.</p>
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">&#9889;</div>
+          <h3>Instant access</h3>
+          <p>Direct API calls. No browser, no login screens, no waiting for dashboards to load.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">&#128269;</div>
+          <h3>Smart filtering</h3>
+          <p>Filter by error, warning, or search logs. See only what matters for your debugging.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">&#128274;</div>
+          <h3>Private by design</h3>
+          <p>Runs 100% locally. Your tokens and logs never leave your machine.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">&#128221;</div>
+          <h3>List deployments</h3>
+          <p>See all recent deploys with status, name, and timestamp at a glance.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">&#127760;</div>
+          <h3>Multi-platform</h3>
+          <p>Supports Vercel and Netlify. Works on macOS, Linux, and Windows.</p>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">&#128230;</div>
+          <h3>Zero config</h3>
+          <p>One install, set your token, done. No config files, no setup wizards.</p>
         </div>
       </div>
-      <div class="card">
-        <h3>Why logv?</h3>
-        <ul>
-          <li>Fast — direct API calls, no heavy dashboard</li>
-          <li>Clear — filter by error/warning, readable output</li>
-          <li>Private — runs locally, no data sent to us</li>
-          <li>Cross-platform — macOS, Linux, Windows</li>
-        </ul>
-      </div>
     </div>
+  </section>
 
-    <h2 id="install">Quick Install</h2>
-    <div class="card">
-      <div class="mono">
-        npm i -g deploy-logv<br>
-        export VERCEL_TOKEN=your_vercel_token<br>
-        export NETLIFY_TOKEN=your_netlify_token<br>
-        logv --help
+  <!-- Install -->
+  <section id="install">
+    <div class="container">
+      <h2>Get started in 10 seconds</h2>
+      <p class="subtitle">One command. That's it.</p>
+      <div class="install-box">
+        <code class="install-cmd">npm i -g deploy-logv</code>
+        <button class="copy-btn" onclick="navigator.clipboard.writeText('npm i -g deploy-logv');this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">Copy</button>
       </div>
     </div>
+  </section>
 
-    <div class="grid">
-      <div class="card pricing free">
-        <h3>Free</h3>
-        <div class="row"><span>Basic logs</span><span class="price">$0</span></div>
-        <div class="row"><span>Filter (error/warning)</span><span>✅</span></div>
-        <div class="row"><span>Export JSON/CSV</span><span>❌</span></div>
-        <div class="row"><span>Real-time tail</span><span>❌</span></div>
-      </div>
-      <div class="card pricing">
-        <h3>Pro</h3>
-        <div class="row"><span>Unlimited</span><span class="price">$7/mo</span></div>
-        <div class="row"><span>Real-time tail</span><span>✅</span></div>
-        <div class="row"><span>Full export</span><span>✅</span></div>
-        <div class="row"><span>Team access</span><span>✅</span></div>
+  <!-- Pricing -->
+  <section>
+    <div class="container">
+      <h2>Simple pricing</h2>
+      <p class="subtitle">Free to start. Upgrade when you need more.</p>
+      <div class="pricing-grid">
+        <div class="plan">
+          <div class="plan-name">Free</div>
+          <div class="plan-price">$0</div>
+          <ul class="plan-features">
+            <li class="yes">View deployment logs</li>
+            <li class="yes">Filter by error / warning</li>
+            <li class="yes">List recent deployments</li>
+            <li class="yes">Vercel + Netlify support</li>
+            <li class="no">Real-time tail</li>
+            <li class="no">Export to JSON/CSV</li>
+          </ul>
+        </div>
+        <div class="plan featured">
+          <div class="plan-name">Pro</div>
+          <div class="plan-price">$7 <span>/mo</span></div>
+          <ul class="plan-features">
+            <li class="yes">Everything in Free</li>
+            <li class="yes">Real-time log tailing</li>
+            <li class="yes">Export to JSON/CSV</li>
+            <li class="yes">Team access</li>
+            <li class="yes">Priority support</li>
+            <li class="yes">Unlimited queries</li>
+          </ul>
+        </div>
       </div>
     </div>
-    <footer>Get started: <a href="https://github.com/arikmozh/logv" style="color:var(--accent)">github.com/arikmozh/logv</a></footer>
-  </div>
+  </section>
+
+  <footer>
+    <p>Made by <a href="https://github.com/arikmozh">arikmozh</a> &middot; <a href="https://github.com/arikmozh/logv">GitHub</a> &middot; <a href="https://www.npmjs.com/package/deploy-logv">npm</a></p>
+  </footer>
+
 </body>
 </html>
