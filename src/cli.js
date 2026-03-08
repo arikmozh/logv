@@ -2,13 +2,34 @@
 const { Command } = require('commander');
 const axios = require('axios');
 const chalk = require('chalk');
+const fs = require('fs');
+const path = require('path');
 
 const program = new Command();
 
 program
   .name('logv')
   .description('CLI for Vercel/Netlify deployment logs')
-  .version('0.1.0');
+  .version('0.2.0');
+
+function exportLogs(logs, filepath) {
+  const ext = path.extname(filepath).toLowerCase();
+  if (ext === '.json') {
+    fs.writeFileSync(filepath, JSON.stringify(logs, null, 2));
+  } else if (ext === '.csv') {
+    const header = 'time,type,message';
+    const rows = logs.map(l => {
+      const time = new Date(l.date).toISOString();
+      const msg = `"${(l.text || '').replace(/"/g, '""')}"`;
+      return `${time},${l.type},${msg}`;
+    });
+    fs.writeFileSync(filepath, [header, ...rows].join('\n'));
+  } else {
+    console.error('Unsupported format. Use .json or .csv');
+    process.exit(1);
+  }
+  console.log(chalk.green(`Exported ${logs.length} logs to ${filepath}`));
+}
 
 program
   .command('vercel')
@@ -18,7 +39,9 @@ program
   .option('-l, --list', 'List recent deployments')
   .option('-n, --num <n>', 'Number of logs', '100')
   .option('-f, --filter <type>', 'Filter: error, warning, all', 'all')
-  .action(async ({ project, deployment, list, num, filter }) => {
+  .option('-t, --tail', 'Real-time log tailing (Pro)')
+  .option('-e, --export <file>', 'Export logs to JSON/CSV (Pro)')
+  .action(async ({ project, deployment, list, num, filter, tail, export: exportFile }) => {
     if (!process.env.VERCEL_TOKEN) {
       console.error('❌ Set VERCEL_TOKEN environment variable');
       console.log('Usage: export VERCEL_TOKEN=your_token');
@@ -67,6 +90,51 @@ program
         logs = logs.filter(l => l.text.toLowerCase().includes('warn'));
       }
 
+      // Export mode
+      if (exportFile) {
+        exportLogs(logs, exportFile);
+        return;
+      }
+
+      // Tail mode — poll for new logs every 3s
+      if (tail) {
+        let seen = new Set(logs.map(l => `${l.date}-${l.text}`));
+        logs.slice(0, parseInt(num)).forEach(log => {
+          const time = chalk.dim(new Date(log.date).toLocaleTimeString());
+          const prefix = log.type === 'stderr' ? chalk.red('ERR') : chalk.gray('OUT');
+          console.log(`${time} ${prefix} ${log.text}`);
+        });
+        console.log(chalk.cyan('\n  Tailing logs... (Ctrl+C to stop)\n'));
+        const poll = async () => {
+          try {
+            const r = await axios.get(
+              `https://api.vercel.com/v2/deployments/${deployment}/events`,
+              { headers }
+            );
+            const fresh = (Array.isArray(r.data) ? r.data : []).map(e => ({
+              type: e.type,
+              text: e.payload?.text || '',
+              date: e.created,
+            }));
+            let filtered = fresh;
+            if (filter === 'error') filtered = fresh.filter(l => l.type === 'stderr');
+            else if (filter === 'warning') filtered = fresh.filter(l => l.text.toLowerCase().includes('warn'));
+            filtered.forEach(log => {
+              const key = `${log.date}-${log.text}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                const time = chalk.dim(new Date(log.date).toLocaleTimeString());
+                const prefix = log.type === 'stderr' ? chalk.red('ERR') : chalk.gray('OUT');
+                console.log(`${time} ${prefix} ${log.text}`);
+              }
+            });
+          } catch (_) {}
+        };
+        setInterval(poll, 3000);
+        return;
+      }
+
+      // Normal output
       logs.slice(0, parseInt(num)).forEach(log => {
         const time = chalk.dim(new Date(log.date).toLocaleTimeString());
         const prefix = log.type === 'stderr' ? chalk.red('ERR') : chalk.gray('OUT');
@@ -75,7 +143,7 @@ program
 
       if (!logs.length) console.log(chalk.yellow('No logs found for this filter.'));
     } catch (err) {
-      console.error('❌ Error:', err.response?.data?.error?.message || err.message);
+      console.error('Error:', err.response?.data?.error?.message || err.message);
     }
   });
 
@@ -87,7 +155,9 @@ program
   .option('-l, --list', 'List recent deploys')
   .option('-n, --num <n>', 'Number of logs', '100')
   .option('-f, --filter <type>', 'Filter: error, warning, all', 'all')
-  .action(async ({ site, deployment, list, num, filter }) => {
+  .option('-t, --tail', 'Real-time log tailing (Pro)')
+  .option('-e, --export <file>', 'Export logs to JSON/CSV (Pro)')
+  .action(async ({ site, deployment, list, num, filter, tail, export: exportFile }) => {
     if (!process.env.NETLIFY_TOKEN) {
       console.error('❌ Set NETLIFY_TOKEN environment variable');
       console.log('Usage: export NETLIFY_TOKEN=your_token');
@@ -136,6 +206,53 @@ program
         logs = logs.filter(l => l.type === 'warning' || l.text.toLowerCase().includes('warn'));
       }
 
+      // Export mode
+      if (exportFile) {
+        exportLogs(logs, exportFile);
+        return;
+      }
+
+      // Tail mode
+      if (tail) {
+        let seen = new Set(logs.map(l => `${l.date}-${l.text}`));
+        logs.slice(0, parseInt(num)).forEach(log => {
+          const time = chalk.dim(new Date(log.date).toLocaleTimeString());
+          const prefix = log.type === 'error' ? chalk.red('ERR') :
+                        log.type === 'warning' ? chalk.yellow('WRN') : chalk.gray('OUT');
+          console.log(`${time} ${prefix} ${log.text}`);
+        });
+        console.log(chalk.cyan('\n  Tailing logs... (Ctrl+C to stop)\n'));
+        const poll = async () => {
+          try {
+            const r = await axios.get(
+              `https://api.netlify.com/api/v1/deploys/${deployment}/log`,
+              { headers }
+            );
+            const fresh = (Array.isArray(r.data) ? r.data : []).map(e => ({
+              type: e.level || 'info',
+              text: e.message || '',
+              date: e.ts,
+            }));
+            let filtered = fresh;
+            if (filter === 'error') filtered = fresh.filter(l => l.type === 'error');
+            else if (filter === 'warning') filtered = fresh.filter(l => l.type === 'warning' || l.text.toLowerCase().includes('warn'));
+            filtered.forEach(log => {
+              const key = `${log.date}-${log.text}`;
+              if (!seen.has(key)) {
+                seen.add(key);
+                const time = chalk.dim(new Date(log.date).toLocaleTimeString());
+                const prefix = log.type === 'error' ? chalk.red('ERR') :
+                              log.type === 'warning' ? chalk.yellow('WRN') : chalk.gray('OUT');
+                console.log(`${time} ${prefix} ${log.text}`);
+              }
+            });
+          } catch (_) {}
+        };
+        setInterval(poll, 3000);
+        return;
+      }
+
+      // Normal output
       logs.slice(0, parseInt(num)).forEach(log => {
         const time = chalk.dim(new Date(log.date).toLocaleTimeString());
         const prefix = log.type === 'error' ? chalk.red('ERR') :
@@ -145,7 +262,7 @@ program
 
       if (!logs.length) console.log(chalk.yellow('No logs found for this filter.'));
     } catch (err) {
-      console.error('❌ Error:', err.response?.data?.message || err.message);
+      console.error('Error:', err.response?.data?.message || err.message);
     }
   });
 
