@@ -4,13 +4,62 @@ const axios = require('axios');
 const chalk = require('chalk');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 const program = new Command();
+const RC_PATH = path.join(os.homedir(), '.logvrc');
+const INSTANCE_NAME = os.hostname();
 
 program
   .name('logv')
   .description('CLI for Vercel/Netlify deployment logs')
-  .version('0.2.0');
+  .version('0.3.0');
+
+// ── License helpers ──
+
+function readRC() {
+  try {
+    return JSON.parse(fs.readFileSync(RC_PATH, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function writeRC(data) {
+  fs.writeFileSync(RC_PATH, JSON.stringify(data, null, 2));
+}
+
+function deleteRC() {
+  try { fs.unlinkSync(RC_PATH); } catch {}
+}
+
+async function isProUser() {
+  const rc = readRC();
+  if (!rc || !rc.license_key || rc.status !== 'active') return false;
+
+  const now = Date.now();
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  if (now - (rc.last_validated || 0) < ONE_DAY) return true;
+
+  try {
+    const res = await axios.post('https://api.lemonsqueezy.com/v1/licenses/validate', {
+      license_key: rc.license_key,
+      instance_name: INSTANCE_NAME,
+    });
+    const valid = res.data?.valid;
+    writeRC({ ...rc, status: valid ? 'active' : 'expired', last_validated: now });
+    return valid;
+  } catch {
+    return true; // offline grace — trust cache
+  }
+}
+
+function showProGate() {
+  console.log(chalk.yellow('\n  ⚡ This is a Pro feature.'));
+  console.log(chalk.dim('  Upgrade at https://arikmozh.github.io/logv/#pricing'));
+  console.log(chalk.dim('  Then run: logv activate <your-license-key>\n'));
+  process.exit(0);
+}
 
 function exportLogs(logs, filepath) {
   const ext = path.extname(filepath).toLowerCase();
@@ -31,10 +80,81 @@ function exportLogs(logs, filepath) {
   console.log(chalk.green(`Exported ${logs.length} logs to ${filepath}`));
 }
 
-function isProUser() {
-  const key = process.env.LOGV_PRO_KEY;
-  return key && key.startsWith('logv_pro_');
-}
+// ── License commands ──
+
+program
+  .command('activate <key>')
+  .description('Activate a Pro license key')
+  .action(async (key) => {
+    console.log(chalk.dim('Activating license...'));
+    try {
+      const res = await axios.post('https://api.lemonsqueezy.com/v1/licenses/activate', {
+        license_key: key,
+        instance_name: INSTANCE_NAME,
+      });
+      if (res.data?.activated) {
+        writeRC({
+          license_key: key,
+          instance_id: res.data.instance.id,
+          activated_at: Date.now(),
+          last_validated: Date.now(),
+          status: 'active',
+        });
+        console.log(chalk.green('\n  ✓ License activated! Pro features are now enabled.\n'));
+      } else {
+        console.error(chalk.red('Activation failed:'), res.data?.error || 'Invalid key');
+      }
+    } catch (err) {
+      const msg = err.response?.data?.error || err.message;
+      console.error(chalk.red('Activation failed:'), msg);
+    }
+  });
+
+program
+  .command('deactivate')
+  .description('Deactivate your Pro license on this machine')
+  .action(async () => {
+    const rc = readRC();
+    if (!rc || !rc.license_key) {
+      console.log(chalk.yellow('No active license found.'));
+      return;
+    }
+    try {
+      await axios.post('https://api.lemonsqueezy.com/v1/licenses/deactivate', {
+        license_key: rc.license_key,
+        instance_id: rc.instance_id,
+      });
+      deleteRC();
+      console.log(chalk.green('License deactivated. Pro features disabled.'));
+    } catch {
+      deleteRC();
+      console.log(chalk.yellow('Local license removed.'));
+    }
+  });
+
+program
+  .command('status')
+  .description('Show current license status')
+  .action(async () => {
+    const rc = readRC();
+    if (!rc || !rc.license_key) {
+      console.log(chalk.bold('\n  Plan: ') + 'Free');
+      console.log(chalk.dim('  Activate: logv activate <key>'));
+      console.log(chalk.dim('  Get Pro:  https://arikmozh.github.io/logv/#pricing\n'));
+      return;
+    }
+    const masked = rc.license_key.slice(0, 8) + '...' + rc.license_key.slice(-4);
+    console.log(chalk.bold('\n  Plan:     ') + chalk.green('Pro'));
+    console.log(chalk.bold('  Key:      ') + masked);
+    console.log(chalk.bold('  Status:   ') + (rc.status === 'active' ? chalk.green('Active') : chalk.red(rc.status)));
+    console.log(chalk.bold('  Activated:') + ' ' + new Date(rc.activated_at).toLocaleDateString());
+    if (rc.last_validated) {
+      console.log(chalk.bold('  Verified: ') + new Date(rc.last_validated).toLocaleDateString());
+    }
+    console.log();
+  });
+
+// ── Vercel ──
 
 program
   .command('vercel')
@@ -48,7 +168,7 @@ program
   .option('-e, --export <file>', 'Export logs to JSON/CSV (Pro)')
   .action(async ({ project, deployment, list, num, filter, tail, export: exportFile }) => {
     if (!process.env.VERCEL_TOKEN) {
-      console.error('❌ Set VERCEL_TOKEN environment variable');
+      console.error('Set VERCEL_TOKEN environment variable');
       console.log('Usage: export VERCEL_TOKEN=your_token');
       process.exit(1);
     }
@@ -96,13 +216,8 @@ program
       }
 
       // Pro feature gate
-      if (tail || exportFile) {
-        if (!isProUser()) {
-          console.log(chalk.yellow('⚡ --tail and --export are Pro features.'));
-          console.log(chalk.dim('Upgrade at https://arikmozh.github.io/logv/#pricing'));
-          console.log(chalk.dim('Then set: export LOGV_PRO_KEY=your_key'));
-          process.exit(0);
-        }
+      if ((tail || exportFile) && !(await isProUser())) {
+        showProGate();
       }
 
       // Export mode
@@ -162,6 +277,8 @@ program
     }
   });
 
+// ── Netlify ──
+
 program
   .command('netlify')
   .description('Fetch Netlify deployment logs')
@@ -174,7 +291,7 @@ program
   .option('-e, --export <file>', 'Export logs to JSON/CSV (Pro)')
   .action(async ({ site, deployment, list, num, filter, tail, export: exportFile }) => {
     if (!process.env.NETLIFY_TOKEN) {
-      console.error('❌ Set NETLIFY_TOKEN environment variable');
+      console.error('Set NETLIFY_TOKEN environment variable');
       console.log('Usage: export NETLIFY_TOKEN=your_token');
       process.exit(1);
     }
@@ -222,13 +339,8 @@ program
       }
 
       // Pro feature gate
-      if (tail || exportFile) {
-        if (!isProUser()) {
-          console.log(chalk.yellow('⚡ --tail and --export are Pro features.'));
-          console.log(chalk.dim('Upgrade at https://arikmozh.github.io/logv/#pricing'));
-          console.log(chalk.dim('Then set: export LOGV_PRO_KEY=your_key'));
-          process.exit(0);
-        }
+      if ((tail || exportFile) && !(await isProUser())) {
+        showProGate();
       }
 
       // Export mode
