@@ -31,6 +31,11 @@ function exportLogs(logs, filepath) {
   console.log(chalk.green(`Exported ${logs.length} logs to ${filepath}`));
 }
 
+function isProUser() {
+  const key = process.env.LOGV_PRO_KEY;
+  return key && key.startsWith('logv_pro_');
+}
+
 program
   .command('vercel')
   .description('Fetch Vercel logs')
@@ -88,6 +93,16 @@ program
         logs = logs.filter(l => l.type === 'stderr');
       } else if (filter === 'warning') {
         logs = logs.filter(l => l.text.toLowerCase().includes('warn'));
+      }
+
+      // Pro feature gate
+      if (tail || exportFile) {
+        if (!isProUser()) {
+          console.log(chalk.yellow('⚡ --tail and --export are Pro features.'));
+          console.log(chalk.dim('Upgrade at https://arikmozh.github.io/logv/#pricing'));
+          console.log(chalk.dim('Then set: export LOGV_PRO_KEY=your_key'));
+          process.exit(0);
+        }
       }
 
       // Export mode
@@ -204,6 +219,16 @@ program
         logs = logs.filter(l => l.type === 'error');
       } else if (filter === 'warning') {
         logs = logs.filter(l => l.type === 'warning' || l.text.toLowerCase().includes('warn'));
+      }
+
+      // Pro feature gate
+      if (tail || exportFile) {
+        if (!isProUser()) {
+          console.log(chalk.yellow('⚡ --tail and --export are Pro features.'));
+          console.log(chalk.dim('Upgrade at https://arikmozh.github.io/logv/#pricing'));
+          console.log(chalk.dim('Then set: export LOGV_PRO_KEY=your_key'));
+          process.exit(0);
+        }
       }
 
       // Export mode

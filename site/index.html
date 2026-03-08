@@ -267,12 +267,13 @@
 
   <!-- Hero -->
   <div class="hero">
-    <div class="hero-badge"><span>v0.1.0</span> &mdash; now on npm</div>
+    <div class="hero-badge"><span>v0.2.0</span> &mdash; now on npm</div>
     <h1>Deployment logs,<br><span class="gradient">straight from your terminal</span></h1>
     <p>Stop clicking through dashboards. Get Vercel & Netlify logs instantly with filtering, error highlighting, and clean output.</p>
     <div class="hero-actions">
       <a class="btn btn-primary" href="#install">npm i -g deploy-logv</a>
       <a class="btn btn-secondary" href="https://github.com/arikmozh/logv">View on GitHub</a>
+      <a class="btn btn-secondary" href="#pricing" style="border-color:var(--accent);">Get Pro →</a>
     </div>
   </div>
 
@@ -299,6 +300,12 @@
         <span class="dim">21:49:11</span> <span class="err">ERR</span> Failed to compile.<br>
         <span class="dim">21:49:11</span> <span class="err">ERR</span> Type error: File 'page.jsx' is not a module.<br>
         <span class="dim">21:49:11</span> <span class="err">ERR</span> Command "npm run build" exited with 1<br>
+        <br>
+        <span class="prompt">$</span> <span class="cmd">logv vercel</span> <span class="flag">-d dpl_CcKqW7JJ --tail</span><br>
+        <br>
+        <span class="dim">21:50:03</span> <span class="out">Tailing logs... (Ctrl+C to stop)</span><br>
+        <span class="dim">21:50:06</span> <span class="out">Building project...</span><br>
+        <span class="dim">21:50:09</span> <span class="prompt">READY</span> <span class="out">Deployment complete</span><br>
       </div>
     </div>
   </div>
@@ -356,7 +363,7 @@
   </section>
 
   <!-- Pricing -->
-  <section>
+  <section id="pricing">
     <div class="container">
       <h2>Simple pricing</h2>
       <p class="subtitle">Free to start. Upgrade when you need more.</p>
@@ -376,10 +383,11 @@
         <div class="plan featured">
           <div class="plan-name">Pro</div>
           <div class="plan-price">$7 <span>/mo</span></div>
+          <a class="btn btn-primary" href="#pricing" style="width:100%;justify-content:center;margin-bottom:16px;font-size:14px;">Get Pro — $7/mo</a>
           <ul class="plan-features">
             <li class="yes">Everything in Free</li>
-            <li class="yes">Real-time log tailing</li>
-            <li class="yes">Export to JSON/CSV</li>
+            <li class="yes">Real-time log tailing (--tail)</li>
+            <li class="yes">Export to JSON/CSV (--export)</li>
             <li class="yes">Team access</li>
             <li class="yes">Priority support</li>
             <li class="yes">Unlimited queries</li>
